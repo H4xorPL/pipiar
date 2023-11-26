@@ -8,7 +8,10 @@
     {
         "owner":"h4xorpl",
         "repo": "pipiar",
-        "authors": ["h4xorpl", "jeremj"],
-        "paths": ["**/config/**"]
+        "requested_reviewers": ["igorbanked"]
+    },
+    {
+        "owner":"h4xorpl",
+        "repo":"edb"
     }
 ]

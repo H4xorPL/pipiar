@@ -1,2 +1,4 @@
 .env
 .vscode
+output.json
+settings_data.json

@@ -16,6 +16,12 @@
           "type": "string"
         }
       },
+      "requested_reviewers":{
+        "type":"array",
+        "items": {
+          "type":"string"
+        }
+      },
       "paths": {
         "type": "array",
         "items": {
@@ -23,6 +29,6 @@
         }
       }
     },
-    "required": ["owner", "repo", "authors", "paths"]
+    "required": ["owner", "repo"]
   }
 }
