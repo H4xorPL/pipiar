@@ -1,4 +1,6 @@
 run:
-	python3 main.py
+	pipenv run python main.py
 validate:
-	python3 settings.py
+	pipenv run python settings.py
+install:
+	pipenv install
