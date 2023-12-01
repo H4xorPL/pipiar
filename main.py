@@ -3,10 +3,7 @@ import requests
 import fnmatch
 import json
 import os
-from dotenv import load_dotenv
 from json.encoder import JSONEncoder
-
-load_dotenv()
 
 class RepoSettings:
     def __init__(self, owner: str, repo: str, authors: List[str], requested_reviewers: List[str], paths: List[str]):
