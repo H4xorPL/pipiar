@@ -10,6 +10,9 @@
       "repo": {
         "type": "string"
       },
+      "min_approvals":{
+        "type": "integer"
+      },
       "authors": {
         "type": "array",
         "items": {

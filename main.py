@@ -1,20 +1,20 @@
 from typing import List, Dict, Optional
+import os
+import json
 import requests
 import fnmatch
-import json
-import os
-from json.encoder import JSONEncoder
 
 class RepoSettings:
-    def __init__(self, owner: str, repo: str, authors: List[str], requested_reviewers: List[str], paths: List[str]):
+    def __init__(self, owner: str, repo: str, authors: List[str], requested_reviewers: List[str], paths: List[str], min_approvals: int):
         self.owner = owner
         self.repo = repo
         self.authors = authors
         self.requested_reviewers = requested_reviewers
         self.paths = paths
+        self.min_approvals = min_approvals
 
 class PullRequest:
-    def __init__(self, number: int, title: str, url: str):
+    def __init__(self, number: int, title: str, url: str, author: str):
         self.number = number
         self.title = title
         self.state: str = "UNKNOWN"
@@ -23,12 +23,12 @@ class PullRequest:
         self.created_at: Optional[str] = None
         self.reviews_by_author: Dict[str, str] = {}
         self.url = url
+        self.author = author
 
-    def __str__(self) -> str:
-        return (
-            f'pr: {self.title} number: {self.number} is in state {self.state}, '
-            f'has reviews: {self.reviews_by_author}\nmergeable: {self.mergeable} and created at: {self.created_at}'
-        )
+class RepoPullRequests:
+    def __init__(self, repo_settings: RepoSettings):
+        self.repo_settings = repo_settings
+        self.pull_requests = []
 
 def get_github_token() -> str:
     return os.getenv("GITHUB_PERSONAL_TOKEN")
@@ -38,12 +38,12 @@ def load_data_from_file(data_file_path: str) -> List[Dict]:
         with open(data_file_path, "r") as file:
             json_data = json.load(file)
         return json_data
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         print(f"JSON data file not found at: {data_file_path}")
-        exit(1)
+        raise e
     except json.decoder.JSONDecodeError as e:
         print(f"Error loading JSON data: {e}")
-        exit(1)
+        raise e
 
 def unmarshal_to_repo_settings(json_data: List[Dict]) -> List[RepoSettings]:
     repo_settings_list = []
@@ -53,13 +53,15 @@ def unmarshal_to_repo_settings(json_data: List[Dict]) -> List[RepoSettings]:
         authors = item.get('authors', [])
         requested_reviewers = item.get('requested_reviewers', [])
         paths = item.get('paths', [])
+        min_approvals = item.get('min_approvals', 0)
 
         repo_settings = RepoSettings(
             owner=owner,
             repo=repo,
             authors=authors,
             requested_reviewers=requested_reviewers,
-            paths=paths
+            paths=paths,
+            min_approvals=min_approvals,
         )
 
         repo_settings_list.append(repo_settings)
@@ -80,7 +82,7 @@ def get_open_pull_requests(owner: str, repo: str, authors: List[str], requested_
     pull_requests = response.json()
 
     for pull_request in pull_requests:
-        pr = PullRequest(pull_request["number"], pull_request['title'], pull_request['html_url'])
+        pr = PullRequest(pull_request["number"], pull_request['title'], pull_request['html_url'], pull_request['user']['login'])
 
         if not (author_tracked(pull_request, authors) or path_matched(owner, repo, pr, token, paths) or
                 requested_reviewer_matched(owner, repo, pr, token, requested_reviewers)) and (authors or requested_reviewers or paths):
@@ -94,7 +96,7 @@ def get_open_pull_requests(owner: str, repo: str, authors: List[str], requested_
 
     return pull_requests_total
 
-def check_pull_request_details(owner: str, repo: str, pull_request: PullRequest, token:str) -> PullRequest:
+def check_pull_request_details(owner: str, repo: str, pull_request: PullRequest, token: str) -> PullRequest:
     url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pull_request.number}'
     headers = {'Authorization': f'token {token}'}
     response = requests.get(url, headers=headers)
@@ -111,7 +113,7 @@ def check_pull_request_details(owner: str, repo: str, pull_request: PullRequest,
 
     return pull_request
 
-def check_pull_request_reviews(owner: str, repo: str, pull_request: PullRequest, token:str) -> PullRequest:
+def check_pull_request_reviews(owner: str, repo: str, pull_request: PullRequest, token: str) -> PullRequest:
     url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pull_request.number}/reviews'
     headers = {'Authorization': f'token {token}'}
     response = requests.get(url, headers=headers)
@@ -133,7 +135,7 @@ def check_pull_request_reviews(owner: str, repo: str, pull_request: PullRequest,
 
     return pull_request
 
-def determine_pull_request_state(pull_request: PullRequest):
+def determine_pull_request_state(pull_request: PullRequest) -> PullRequest:
     state = "AWAITING_REVIEWS"
 
     for review in pull_request.reviews_by_author.values():
@@ -148,9 +150,9 @@ def determine_pull_request_state(pull_request: PullRequest):
     return pull_request
 
 def author_tracked(pull_request: PullRequest, authors: List[str]) -> bool:
-    return pull_request['user']['login'].lower() in authors
+    return pull_request.author.lower() in authors
 
-def path_matched(owner: str, repo: str, pull_request: PullRequest, token:str, paths: List[str]) -> bool:
+def path_matched(owner: str, repo: str, pull_request: PullRequest, token: str, paths: List[str]) -> bool:
     url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pull_request.number}/files'
     headers = {'Authorization': f'token {token}'}
     response = requests.get(url, headers=headers)
@@ -167,7 +169,7 @@ def path_matched(owner: str, repo: str, pull_request: PullRequest, token:str, pa
 
     return False
 
-def requested_reviewer_matched(owner: str, repo: str, pull_request: PullRequest, token:str, requested_reviewers: List[str]) -> bool:
+def requested_reviewer_matched(owner: str, repo: str, pull_request: PullRequest, token: str, requested_reviewers: List[str]) -> bool:
     url = f'https://api.github.com/repos/{owner}/{repo}/pulls/{pull_request.number}'
     headers = {'Authorization': f'token {token}'}
     response = requests.get(url, headers=headers)
@@ -185,20 +187,15 @@ def requested_reviewer_matched(owner: str, repo: str, pull_request: PullRequest,
 
     return False
 
-def requested_teams_matched(owner: str, repo: str, pull_request: PullRequest, token:str, requested_teams: List[str]) -> bool:
+def requested_teams_matched(owner: str, repo: str, pull_request: PullRequest, token: str, requested_teams: List[str]) -> bool:
     return False
 
 # Load your JSON data from a file
 json_data_file_path = "settings_data.json"
 json_data = load_data_from_file(json_data_file_path)
 
-# Unmarshal JSON data to a list of Repo_Settings objects
+# Unmarshal JSON data to a list of RepoSettings objects
 repo_settings_list = unmarshal_to_repo_settings(json_data)
-
-class RepoPullRequests:
-    def __init__(self, repoSettings: RepoSettings):
-        self.repoSettings = repoSettings
-        self.pullRequests = []
 
 # Use a dictionary to store RepoPullRequests objects with repo_settings.repo as the key
 all_repos_dict = {}
@@ -211,7 +208,7 @@ for repo_settings in repo_settings_list:
     pull_requests_total2 = get_open_pull_requests(repo_settings.owner, repo_settings.repo, repo_settings.authors, repo_settings.requested_reviewers, repo_settings.paths)
 
     for pr in pull_requests_total2:
-        rpr.pullRequests.append(pr)
+        rpr.pull_requests.append(pr)
 
     all_repos_dict[repo_settings.repo] = rpr
 

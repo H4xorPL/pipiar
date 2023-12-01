@@ -64,6 +64,10 @@
             margin-top: 5px;
         }
 
+        .author {
+            font-weight: bold;
+        }
+
         .approved {
             color: #28a745;
             font-weight: bold;
@@ -139,7 +143,10 @@
                     pullRequestContainer.innerHTML = `
                         <div>
                             <a href="${pullRequest.url}" target="_blank">${pullRequest.title}</a>
-                            <div class="${mergeableClass}">${pullRequest.mergeable ? 'Mergeable' : 'Not Mergeable'}</div>
+                            <div>
+                                created by <span class="author">${pullRequest.author}</span> and 
+                                <span class="${mergeableClass}">${pullRequest.mergeable ? 'Mergeable' : 'Not Mergeable'}</span>
+                            </div>
                         </div>
                         <div class="reviews-container">
                             <strong>Reviews by Author:</strong>
