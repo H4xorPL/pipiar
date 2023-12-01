@@ -1,0 +1,16 @@
+[
+    {
+        "owner":"h4xorpl",
+        "repo": "piar",
+        "authors": ["jeremj", "igorbanked", "h4xorpl"],
+        "paths": ["**/config/**"]
+    },
+    {
+        "owner":"h4xorpl",
+        "repo": "pipiar"
+        },
+    {
+        "owner":"h4xorpl",
+        "repo":"edb"
+    }
+]

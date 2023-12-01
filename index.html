@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Pull Requests Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="logo.svg" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f6f8fa;
+            margin: 20px;
+        }
+
+        .repo-container {
+            margin-bottom: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .repo-heading {
+            background-color: #0366d6;
+            color: #fff;
+            padding: 10px;
+            margin: 0;
+        }
+
+        .pull-request {
+            border-bottom: 1px solid #ddd;
+            padding: 15px;
+            margin: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s;
+        }
+
+        .pull-request:last-child {
+            border-bottom: none;
+        }
+
+        .pull-request a {
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .mergeable {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .not-mergeable {
+            color: #d73a49;
+            font-weight: bold;
+        }
+
+        .reviews-container {
+            margin-top: 10px;
+        }
+
+        .review-by-author {
+            margin-top: 5px;
+        }
+
+        .approved {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .changes-requested {
+            color: #d73a49;
+            font-weight: bold;
+        }
+
+        .awaiting-reviews {
+            color: #6a737d;
+            font-weight: bold;
+        }
+
+        .commented {
+            color: #6a737d;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<script>
+    // Fetch JSON data from the file
+    fetch('output.json')
+        .then(response => response.json())
+        .then(data => {
+            // Iterate through each repository
+            Object.keys(data).forEach(repoName => {
+                const repo = data[repoName];
+
+                // Create a container for each repository
+                const repoContainer = document.createElement('div');
+                repoContainer.className = 'repo-container';
+                document.body.appendChild(repoContainer);
+
+                // Display repository name
+                const repoHeading = document.createElement('h2');
+                repoHeading.className = 'repo-heading';
+                repoHeading.textContent = repoName;
+                repoContainer.appendChild(repoHeading);
+
+                // Function to get the class for review state
+                function getReviewStateClass(reviewState) {
+                    switch (reviewState) {
+                        case 'APPROVED':
+                            return 'approved';
+                        case 'CHANGES_REQUESTED':
+                            return 'changes-requested';
+                        case 'AWAITING_REVIEWS':
+                            return 'awaiting-reviews';
+                        case 'COMMENTED':
+                            return 'commented';
+                        default:
+                            return '';
+                    }
+                }
+
+                // Iterate through each pull request in the repository
+                repo.pullRequests.forEach(pullRequest => {
+                    // Create a container for each pull request
+                    const pullRequestContainer = document.createElement('div');
+                    pullRequestContainer.className = 'pull-request';
+
+                    // Determine the state of the pull request
+                    let stateClass = getReviewStateClass(pullRequest.state);
+
+                    // Determine mergeability
+                    let mergeableClass = pullRequest.mergeable ? 'mergeable' : 'not-mergeable';
+
+                    // Display pull request information
+                    pullRequestContainer.innerHTML = `
+                        <div>
+                            <a href="${pullRequest.url}" target="_blank">${pullRequest.title}</a>
+                            <div class="${mergeableClass}">${pullRequest.mergeable ? 'Mergeable' : 'Not Mergeable'}</div>
+                        </div>
+                        <div class="reviews-container">
+                            <strong>Reviews by Author:</strong>
+                            <div class="review-by-author ${stateClass}">
+                                ${Object.entries(pullRequest.reviews_by_author).map(([author, reviewState]) => {
+                                    let authorClass = getReviewStateClass(reviewState);
+                                    return `<span class="${authorClass}">${author}</span>`;
+                                }).join(', ') || 'No Reviews'}
+                            </div>
+                        </div>
+                    `;
+
+                    // Append the pull request container to the repository container
+                    repoContainer.appendChild(pullRequestContainer);
+                });
+            });
+        })
+        .catch(error => console.error('Error fetching JSON:', error));
+</script>
+
+</body>
+</html>

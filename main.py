@@ -17,7 +17,7 @@ class RepoSettings:
         self.paths = paths
 
 class PullRequest:
-    def __init__(self, number: int, title: str):
+    def __init__(self, number: int, title: str, url: str):
         self.number = number
         self.title = title
         self.state: str = "UNKNOWN"
@@ -25,6 +25,7 @@ class PullRequest:
         self.number_of_commits: Optional[int] = None
         self.created_at: Optional[str] = None
         self.reviews_by_author: Dict[str, str] = {}
+        self.url = url
 
     def __str__(self) -> str:
         return (
@@ -82,7 +83,7 @@ def get_open_pull_requests(owner: str, repo: str, authors: List[str], requested_
     pull_requests = response.json()
 
     for pull_request in pull_requests:
-        pr = PullRequest(pull_request["number"], pull_request['title'])
+        pr = PullRequest(pull_request["number"], pull_request['title'], pull_request['html_url'])
 
         if not (author_tracked(pull_request, authors) or path_matched(owner, repo, pr, token, paths) or
                 requested_reviewer_matched(owner, repo, pr, token, requested_reviewers)) and (authors or requested_reviewers or paths):
@@ -202,28 +203,26 @@ class RepoPullRequests:
         self.repoSettings = repoSettings
         self.pullRequests = []
 
-all_repos = []
+# Use a dictionary to store RepoPullRequests objects with repo_settings.repo as the key
+all_repos_dict = {}
 
-# Now, repo_settings_list contains a list of Repo_Settings objects that you can use in your program
 for repo_settings in repo_settings_list:
     print(f"Owner: {repo_settings.owner}, Repo: {repo_settings.repo}, Authors: {repo_settings.authors}, Paths: {repo_settings.paths}")
 
     rpr = RepoPullRequests(repo_settings)
-
-    pull_requests_total2 = []
 
     pull_requests_total2 = get_open_pull_requests(repo_settings.owner, repo_settings.repo, repo_settings.authors, repo_settings.requested_reviewers, repo_settings.paths)
 
     for pr in pull_requests_total2:
         rpr.pullRequests.append(pr)
 
-    all_repos.append(rpr)
+    all_repos_dict[repo_settings.repo] = rpr
 
 # Specify the output file path
 output_file_path = "output.json"
 
 # Write the JSON data to the file
 with open(output_file_path, 'w') as output_file:
-    json.dump(all_repos, output_file, default=lambda o: o.__dict__, indent=2)
+    json.dump(all_repos_dict, output_file, default=lambda o: o.__dict__, indent=2)
 
 print(f"JSON data written to {output_file_path}")
